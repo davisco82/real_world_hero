@@ -4,61 +4,60 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dětský přehled</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 2rem; background: #f7fafc; color: #1a202c; }
-        .card { background: white; border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: 1rem; border: 1px solid #e2e8f0; }
-        .progress-wrap { background: #e2e8f0; border-radius: 999px; height: 16px; overflow: hidden; }
-        .progress { background: #22c55e; height: 100%; }
-        button { background: #2563eb; color: white; border: none; padding: .5rem .9rem; border-radius: 8px; cursor: pointer; }
-        .status { font-size: .9rem; color: #4b5563; }
-        .approved { color: #16a34a; font-weight: 600; }
-        .pending { color: #d97706; font-weight: 600; }
-        .nav a { margin-right: 1rem; }
-    </style>
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-    <div class="nav">
-        <a href="{{ url('/child') }}">Dítě</a>
-        <a href="{{ url('/parent') }}">Rodič</a>
-    </div>
+<body class="min-h-screen bg-slate-950 text-slate-100">
+    <main class="mx-auto max-w-4xl px-4 py-8">
+        <header class="mb-6 flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-900 p-4">
+            <div class="text-sm text-slate-400">Přihlášené dítě</div>
+            <form method="POST" action="{{ route('auth.logout') }}">
+                @csrf
+                <button type="submit" class="rounded-lg bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-400">Odhlásit</button>
+            </form>
+        </header>
 
-    <h1>{{ $child->name }} - Denní mise</h1>
-    <div class="card">
-        <p><strong>Celkové XP:</strong> {{ $child->total_xp }} | <strong>Úroveň:</strong> {{ $child->level() }}</p>
-        <div class="progress-wrap">
-            <div class="progress" style="width: {{ $child->xpIntoCurrentLevel() }}%;"></div>
-        </div>
-        <p class="status">{{ $child->xpIntoCurrentLevel() }}/100 XP v aktuální úrovni (do další úrovně zbývá {{ $child->xpToNextLevel() }} XP)</p>
-    </div>
+        <section class="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-5">
+            <h1 class="mb-3 text-2xl font-bold">{{ $child->name }} - Denní mise</h1>
+            <p class="mb-3 text-slate-400">Celkové XP: <span class="text-slate-100">{{ $child->total_xp }}</span> | Úroveň: <span class="text-slate-100">{{ $child->level() }}</span></p>
+            <div class="h-4 w-full overflow-hidden rounded-full bg-slate-800">
+                <div class="h-full bg-amber-400" style="width: {{ $child->xpIntoCurrentLevel() }}%;"></div>
+            </div>
+            <p class="mt-2 text-sm text-slate-400">{{ $child->xpIntoCurrentLevel() }}/100 XP v aktuální úrovni (do další úrovně zbývá {{ $child->xpToNextLevel() }} XP)</p>
+        </section>
 
-    @if($achievementTitles->count())
-        <div class="card">
-            <strong>Achievementy:</strong>
-            <ul>
-                @foreach($achievementTitles as $title)
-                    <li>{{ $title }}</li>
-                @endforeach
-            </ul>
-        </div>
-    @endif
+        @if($achievementTitles->count())
+            <section class="mb-6 rounded-2xl border border-slate-800 bg-slate-800 p-5">
+                <h2 class="mb-2 text-lg font-semibold text-slate-100">Achievementy</h2>
+                <ul class="list-disc space-y-1 pl-5 text-slate-400">
+                    @foreach($achievementTitles as $title)
+                        <li class="text-orange-500">{{ $title }}</li>
+                    @endforeach
+                </ul>
+            </section>
+        @endif
 
-    @foreach($missions as $mission)
-        @php $completion = $mission->completions->first(); @endphp
-        <div class="card">
-            <h3>{{ $mission->title }}</h3>
-            <p class="status">Doména: {{ $mission->domain->name }} | Odměna: {{ $mission->xp_reward }} XP</p>
+        <section class="grid gap-4">
+            @foreach($missions as $mission)
+                @php $completion = $mission->completions->first(); @endphp
+                <article class="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+                    <h3 class="text-lg font-semibold text-slate-100">{{ $mission->title }}</h3>
+                    <p class="mt-1 text-sm text-slate-400">Doména: {{ $mission->domain->name }} | Odměna: {{ $mission->xp_reward }} XP</p>
 
-            @if(!$completion)
-                <form method="POST" action="{{ route('mvp.complete', $mission) }}">
-                    @csrf
-                    <button type="submit">Označit jako splněné</button>
-                </form>
-            @elseif($completion->status === 'pending_parent')
-                <p class="pending">Čeká na potvrzení rodičem</p>
-            @elseif($completion->status === 'approved')
-                <p class="approved">Potvrzeno ✅ XP připsáno</p>
-            @endif
-        </div>
-    @endforeach
+                    <div class="mt-4">
+                        @if(!$completion)
+                            <form method="POST" action="{{ route('mvp.complete', $mission) }}">
+                                @csrf
+                                <button type="submit" class="rounded-lg bg-amber-400 px-4 py-2 font-semibold text-slate-950 hover:bg-amber-300">Označit jako splněné</button>
+                            </form>
+                        @elseif($completion->status === 'pending_parent')
+                            <p class="font-medium text-orange-500">Čeká na potvrzení rodičem</p>
+                        @elseif($completion->status === 'approved')
+                            <p class="font-medium text-sky-400">Potvrzeno ✅ XP připsáno</p>
+                        @endif
+                    </div>
+                </article>
+            @endforeach
+        </section>
+    </main>
 </body>
 </html>

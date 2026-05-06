@@ -6,14 +6,19 @@ use App\Models\Achievement;
 use App\Models\Child;
 use App\Models\Mission;
 use App\Models\MissionCompletion;
+use App\Models\SkillDomain;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 
 class DailyMissionController extends Controller
 {
     public function childDashboard(): View
     {
-        $child = Child::query()->firstOrFail();
+        abort_unless(Auth::user()?->role === 'child', 403);
+
+        $child = Child::query()->findOrFail(Auth::user()->child_id);
+        $this->ensureFirstMissionSetForToday();
 
         $missions = Mission::query()
             ->with(['domain', 'completions' => function ($q) use ($child) {
@@ -29,6 +34,8 @@ class DailyMissionController extends Controller
 
     public function parentDashboard(): View
     {
+        abort_unless(Auth::user()?->role === 'parent', 403);
+
         $pending = MissionCompletion::query()
             ->with(['mission.domain', 'child'])
             ->where('status', 'pending_parent')
@@ -40,7 +47,9 @@ class DailyMissionController extends Controller
 
     public function completeMission(Mission $mission): RedirectResponse
     {
-        $child = Child::query()->firstOrFail();
+        abort_unless(Auth::user()?->role === 'child', 403);
+
+        $child = Child::query()->findOrFail(Auth::user()->child_id);
 
         MissionCompletion::query()->firstOrCreate([
             'mission_id' => $mission->id,
@@ -55,6 +64,8 @@ class DailyMissionController extends Controller
 
     public function approveCompletion(MissionCompletion $completion): RedirectResponse
     {
+        abort_unless(Auth::user()?->role === 'parent', 403);
+
         if ($completion->status !== 'pending_parent') {
             return back();
         }
@@ -73,5 +84,31 @@ class DailyMissionController extends Controller
         }
 
         return back();
+    }
+
+    private function ensureFirstMissionSetForToday(): void
+    {
+        $today = now()->toDateString();
+
+        $missionTemplates = [
+            ['Přežití', 'Připrav si školní tašku', 20],
+            ['Práce s časem', 'Dokonči domácí úkol před večeří', 30],
+            ['Zdraví a energie', '20 minut pohybu', 25],
+        ];
+
+        foreach ($missionTemplates as [$domainName, $title, $xp]) {
+            $domain = SkillDomain::query()->where('name', $domainName)->first();
+            if (! $domain) {
+                continue;
+            }
+
+            Mission::query()->firstOrCreate([
+                'skill_domain_id' => $domain->id,
+                'title' => $title,
+                'mission_date' => $today,
+            ], [
+                'xp_reward' => $xp,
+            ]);
+        }
     }
 }
