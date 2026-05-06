@@ -7,6 +7,9 @@
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="min-h-screen bg-slate-950 text-slate-100">
+    @include('partials.playful-bg')
+    @include('partials.topbar')
+
     <main class="mx-auto max-w-md px-4 py-10">
         <section class="rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-lg shadow-slate-950/40">
             <h1 class="mb-6 text-2xl font-bold text-slate-100">Registrace rodiče</h1>
@@ -45,7 +48,7 @@
             </form>
 
             <p class="mt-5 text-sm text-slate-400">
-                <a href="{{ route('auth.login') }}" class="font-medium text-sky-400 hover:text-sky-300">Zpět na přihlášení</a>
+                <a href="{{ route('login') }}" class="font-medium text-sky-400 hover:text-sky-300">Zpět na přihlášení</a>
             </p>
         </section>
     </main>

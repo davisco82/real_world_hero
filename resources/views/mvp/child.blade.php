@@ -7,57 +7,88 @@
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="min-h-screen bg-slate-950 text-slate-100">
-    <main class="mx-auto max-w-4xl px-4 py-8">
-        <header class="mb-6 flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-900 p-4">
-            <div class="text-sm text-slate-400">Přihlášené dítě</div>
-            <form method="POST" action="{{ route('auth.logout') }}">
-                @csrf
-                <button type="submit" class="rounded-lg bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-400">Odhlásit</button>
-            </form>
-        </header>
+    @include('partials.playful-bg')
+    @include('partials.topbar')
 
-        <section class="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-5">
-            <h1 class="mb-3 text-2xl font-bold">{{ $child->name }} - Denní mise</h1>
-            <p class="mb-3 text-slate-400">Celkové XP: <span class="text-slate-100">{{ $child->total_xp }}</span> | Úroveň: <span class="text-slate-100">{{ $child->level() }}</span></p>
-            <div class="h-4 w-full overflow-hidden rounded-full bg-slate-800">
-                <div class="h-full bg-amber-400" style="width: {{ $child->xpIntoCurrentLevel() }}%;"></div>
-            </div>
-            <p class="mt-2 text-sm text-slate-400">{{ $child->xpIntoCurrentLevel() }}/100 XP v aktuální úrovni (do další úrovně zbývá {{ $child->xpToNextLevel() }} XP)</p>
-        </section>
+    <main class="mx-auto max-w-6xl px-4 py-8">
+        <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+            <section class="lg:pr-6 lg:border-r lg:border-slate-800">
+                <h1 class="mb-6 text-center text-xl font-semibold">Moje dnešní mise</h1>
 
-        @if($achievementTitles->count())
-            <section class="mb-6 rounded-2xl border border-slate-800 bg-slate-800 p-5">
-                <h2 class="mb-2 text-lg font-semibold text-slate-100">Achievementy</h2>
-                <ul class="list-disc space-y-1 pl-5 text-slate-400">
-                    @foreach($achievementTitles as $title)
-                        <li class="text-orange-500">{{ $title }}</li>
-                    @endforeach
-                </ul>
-            </section>
-        @endif
+                @if($achievementTitles->count())
+                    <section class="mb-6 rounded-2xl border border-slate-800 bg-slate-800 p-5">
+                        <h2 class="mb-2 text-lg font-semibold text-slate-100">Achievementy</h2>
+                        <ul class="list-disc space-y-1 pl-5 text-slate-400">
+                            @foreach($achievementTitles as $title)
+                                <li class="text-orange-500">{{ $title }}</li>
+                            @endforeach
+                        </ul>
+                    </section>
+                @endif
 
-        <section class="grid gap-4">
-            @foreach($missions as $mission)
-                @php $completion = $mission->completions->first(); @endphp
-                <article class="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-                    <h3 class="text-lg font-semibold text-slate-100">{{ $mission->title }}</h3>
-                    <p class="mt-1 text-sm text-slate-400">Doména: {{ $mission->domain->name }} | Odměna: {{ $mission->xp_reward }} XP</p>
+                @php
+                    $periodMap = [
+                        '20 minut pohybu' => 'Ráno',
+                        'Dokonči domácí úkol před večeří' => 'Odpoledne',
+                        'Připrav si školní tašku' => 'Večer',
+                    ];
 
-                    <div class="mt-4">
-                        @if(!$completion)
-                            <form method="POST" action="{{ route('mvp.complete', $mission) }}">
-                                @csrf
-                                <button type="submit" class="rounded-lg bg-amber-400 px-4 py-2 font-semibold text-slate-950 hover:bg-amber-300">Označit jako splněné</button>
-                            </form>
-                        @elseif($completion->status === 'pending_parent')
-                            <p class="font-medium text-orange-500">Čeká na potvrzení rodičem</p>
-                        @elseif($completion->status === 'approved')
-                            <p class="font-medium text-sky-400">Potvrzeno ✅ XP připsáno</p>
-                        @endif
+                    $board = ['Ráno' => [], 'Odpoledne' => [], 'Večer' => []];
+                    foreach ($missions as $mission) {
+                        $period = $periodMap[$mission->title] ?? 'Odpoledne';
+                        $board[$period][] = $mission;
+                    }
+                @endphp
+
+                <section class="rounded-2xl border border-slate-800 bg-slate-900 p-4">
+                    <div class="space-y-4">
+                        @foreach(['Ráno', 'Odpoledne', 'Večer'] as $period)
+                            @php $periodMissions = collect($board[$period])->take(3)->values(); @endphp
+                            <div class="rounded-xl border border-slate-800 bg-slate-800/50 p-3">
+                                <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-300">{{ $period }}</h2>
+
+                                <div class="grid gap-3 md:grid-cols-3">
+                                    @for($i = 0; $i < 3; $i++)
+                                        @php $mission = $periodMissions->get($i); @endphp
+                                        @if($mission)
+                                            @php $completion = $mission->completions->first(); @endphp
+                                            <article class="rotate-[-1deg] rounded-lg border border-amber-300/40 bg-amber-200 p-3 text-slate-950 shadow-sm">
+                                                <div class="mb-2 h-1.5 w-10 rounded-full bg-orange-500/80"></div>
+                                                <h3 class="text-sm font-bold">{{ $mission->title }}</h3>
+                                                <p class="mt-1 text-xs text-slate-700">{{ $mission->domain->name }} • {{ $mission->xp_reward }} XP</p>
+
+                                                <div class="mt-3">
+                                                    @if(!$completion || $completion->status === 'not_completed')
+                                                        <form method="POST" action="{{ route('mvp.complete', $mission) }}">
+                                                            @csrf
+                                                            <button type="submit" class="rounded-md bg-slate-950 px-2.5 py-1 text-xs font-semibold text-amber-300 hover:bg-slate-800">Splněno</button>
+                                                        </form>
+                                                    @elseif($completion->status === 'pending_parent')
+                                                        <p class="text-xs font-semibold text-orange-600">Čeká na potvrzení</p>
+                                                    @elseif($completion->status === 'approved')
+                                                        <p class="text-xs font-semibold text-sky-700">Potvrzeno ✅</p>
+                                                    @elseif($completion->status === 'rejected')
+                                                        <p class="text-xs font-semibold text-orange-600">Zamítnuto</p>
+                                                    @endif
+                                                </div>
+                                            </article>
+                                        @else
+                                            <div class="rounded-lg border border-slate-700/70 bg-slate-900/70 p-3">
+                                                <div class="min-h-[108px] rounded-md bg-[linear-gradient(to_bottom,transparent_23px,rgba(148,163,184,0.17)_24px)] bg-[length:100%_24px]"></div>
+                                            </div>
+                                        @endif
+                                    @endfor
+                                </div>
+                            </div>
+                        @endforeach
                     </div>
-                </article>
-            @endforeach
-        </section>
+                </section>
+            </section>
+
+            <section class="lg:pl-1">
+                @include('mvp.partials.weekly-overview', ['week' => $week])
+            </section>
+        </div>
     </main>
 </body>
 </html>

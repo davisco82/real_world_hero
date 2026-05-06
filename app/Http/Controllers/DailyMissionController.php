@@ -10,14 +10,40 @@ use App\Models\SkillDomain;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class DailyMissionController extends Controller
 {
     public function childDashboard(): View
     {
-        abort_unless(Auth::user()?->role === 'child', 403);
+        $user = Auth::user();
+        abort_unless($user, 403);
 
-        $child = Child::query()->findOrFail(Auth::user()->child_id);
+        $child = null;
+        if ($user->role === 'child') {
+            $child = Child::query()->findOrFail($user->child_id);
+        } elseif ($user->role === 'parent') {
+            $parentChildIds = \App\Models\User::query()
+                ->where('role', 'child')
+                ->where('parent_user_id', $user->id)
+                ->whereNotNull('child_id')
+                ->pluck('child_id');
+
+            $requestedChildId = request()->integer('child_id');
+            if ($requestedChildId) {
+                if (! $parentChildIds->contains($requestedChildId)) {
+                    throw new NotFoundHttpException();
+                }
+                $child = Child::query()->findOrFail($requestedChildId);
+            } else {
+                $firstChildId = $parentChildIds->first();
+                abort_unless($firstChildId, 404);
+                $child = Child::query()->findOrFail($firstChildId);
+            }
+        } else {
+            abort(403);
+        }
+
         $this->ensureFirstMissionSetForToday();
 
         $missions = Mission::query()
@@ -28,21 +54,42 @@ class DailyMissionController extends Controller
             ->get();
 
         $achievementTitles = $child->achievements()->pluck('title');
+        $week = $this->buildWeeklyOverview($child);
 
-        return view('mvp.child', compact('child', 'missions', 'achievementTitles'));
+        return view('mvp.child', compact('child', 'missions', 'achievementTitles', 'week'));
     }
 
-    public function parentDashboard(): View
+    public function parentDashboard(): View|RedirectResponse
     {
-        abort_unless(Auth::user()?->role === 'parent', 403);
+        $user = Auth::user();
+        abort_unless($user, 403);
+        if ($user->role === 'child') {
+            return redirect()->route('mvp.child');
+        }
+        abort_unless($user->role === 'parent', 403);
+
+        $children = \App\Models\User::query()
+            ->where('role', 'child')
+            ->where('parent_user_id', $user->id)
+            ->with('child')
+            ->get()
+            ->pluck('child')
+            ->filter()
+            ->values();
+
+        $childIds = $children->pluck('id');
 
         $pending = MissionCompletion::query()
             ->with(['mission.domain', 'child'])
             ->where('status', 'pending_parent')
+            ->whereIn('child_id', $childIds)
             ->latest('completed_at')
             ->get();
 
-        return view('mvp.parent', compact('pending'));
+        $calendarChild = $children->first();
+        $week = $this->buildWeeklyOverview($calendarChild);
+
+        return view('mvp.parent', compact('pending', 'children', 'week', 'calendarChild'));
     }
 
     public function completeMission(Mission $mission): RedirectResponse
@@ -51,13 +98,17 @@ class DailyMissionController extends Controller
 
         $child = Child::query()->findOrFail(Auth::user()->child_id);
 
-        MissionCompletion::query()->firstOrCreate([
+        $completion = MissionCompletion::query()->firstOrNew([
             'mission_id' => $mission->id,
             'child_id' => $child->id,
-        ], [
+        ]);
+
+        $completion->fill([
             'status' => 'pending_parent',
             'completed_at' => now(),
+            'approved_at' => null,
         ]);
+        $completion->save();
 
         return back();
     }
@@ -110,5 +161,55 @@ class DailyMissionController extends Controller
                 'xp_reward' => $xp,
             ]);
         }
+    }
+
+    private function buildWeeklyOverview(?Child $child): array
+    {
+        $start = now()->startOfWeek(\Carbon\Carbon::MONDAY);
+        $end = now()->endOfWeek(\Carbon\Carbon::SUNDAY);
+        $weekLabel = $start->format('j.n.') . ' - ' . $end->format('j.n.Y');
+
+        $possibleByDate = Mission::query()
+            ->whereBetween('mission_date', [$start->toDateString(), $end->toDateString()])
+            ->selectRaw('mission_date, SUM(xp_reward) as possible_xp')
+            ->groupBy('mission_date')
+            ->pluck('possible_xp', 'mission_date');
+
+        $earnedByDate = collect();
+        if ($child) {
+            $earnedByDate = MissionCompletion::query()
+                ->join('missions', 'missions.id', '=', 'mission_completions.mission_id')
+                ->where('mission_completions.child_id', $child->id)
+                ->where('mission_completions.status', 'approved')
+                ->whereBetween('missions.mission_date', [$start->toDateString(), $end->toDateString()])
+                ->selectRaw('missions.mission_date as mission_date, SUM(missions.xp_reward) as earned_xp')
+                ->groupBy('missions.mission_date')
+                ->pluck('earned_xp', 'mission_date');
+        }
+
+        $days = [];
+        $cursor = $start->copy();
+        while ($cursor->lte($end)) {
+            $key = $cursor->toDateString();
+            $possible = (int) ($possibleByDate[$key] ?? 0);
+            $earned = (int) ($earnedByDate[$key] ?? 0);
+            $percent = $possible > 0 ? (int) round(($earned / $possible) * 100) : 0;
+
+            $days[] = [
+                'date_label' => $cursor->format('j.n.'),
+                'weekday' => $cursor->locale('cs')->translatedFormat('D'),
+                'earned' => $earned,
+                'possible' => $possible,
+                'percent' => min(100, max(0, $percent)),
+            ];
+            $cursor->addDay();
+        }
+
+        return [
+            'week_label' => $weekLabel,
+            'days' => $days,
+            'week_earned' => array_sum(array_column($days, 'earned')),
+            'week_possible' => array_sum(array_column($days, 'possible')),
+        ];
     }
 }
