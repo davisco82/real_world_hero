@@ -10,7 +10,7 @@
     @include('partials.playful-bg')
     @include('partials.topbar')
 
-    <main class="mx-auto max-w-md px-4 py-10">
+    <main class="mx-auto max-w-md px-4 pt-24 pb-10">
         <section class="rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-lg shadow-slate-950/40">
             <h1 class="mb-6 text-2xl font-bold text-slate-100">Registrace dítěte</h1>
 

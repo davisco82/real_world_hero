@@ -10,7 +10,7 @@
     @include('partials.playful-bg')
     @include('partials.topbar')
 
-    <main class="mx-auto max-w-6xl px-4 py-8">
+    <main class="mx-auto max-w-6xl px-4 pt-24 pb-8">
         <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
             <section class="lg:pr-6 lg:border-r lg:border-slate-800">
                 <h1 class="mb-6 text-center text-xl font-semibold">Moje dnešní mise</h1>
@@ -86,6 +86,7 @@
             </section>
 
             <section class="lg:pl-1">
+                <h2 class="mb-6 text-center text-xl font-semibold">Týdenní přehled</h2>
                 @include('mvp.partials.weekly-overview', ['week' => $week])
             </section>
         </div>

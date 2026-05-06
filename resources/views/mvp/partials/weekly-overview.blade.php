@@ -1,9 +1,7 @@
 <aside class="relative overflow-hidden rounded-3xl border border-sky-400/20 bg-slate-900/90 p-4 shadow-[0_0_30px_rgba(56,189,248,0.12)] lg:sticky lg:top-4">
     <div class="pointer-events-none absolute -right-8 -top-8 h-28 w-28 rounded-full bg-sky-400/10 blur-2xl"></div>
     <div class="pointer-events-none absolute -left-8 bottom-8 h-24 w-24 rounded-full bg-amber-400/10 blur-2xl"></div>
-
-    <h2 class="text-xl font-bold text-slate-100">Týdenní přehled</h2>
-    <p class="mt-1 text-xs uppercase tracking-wide text-slate-400">{{ $week['week_label'] }} • Po–Ne</p>
+    <p class="text-xs uppercase tracking-wide text-slate-400">{{ $week['week_label'] }} • Po–Ne</p>
 
     @php
         $weekPercent = $week['week_possible'] > 0 ? round(($week['week_earned'] / $week['week_possible']) * 100) : 0;

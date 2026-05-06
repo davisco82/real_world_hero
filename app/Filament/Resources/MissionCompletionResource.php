@@ -246,11 +246,31 @@ class MissionCompletionResource extends Resource
         $completion->status = $newStatus;
         $completion->save();
 
-        if ($newStatus === 'approved') {
-            $achievement = Achievement::query()->where('code', 'first_mission_approved')->first();
-            if ($achievement && ! $child->achievements()->where('achievement_id', $achievement->id)->exists()) {
-                $child->achievements()->attach($achievement->id, ['unlocked_at' => now()]);
-            }
+        static::syncFirstMissionAchievement($child);
+    }
+
+    protected static function syncFirstMissionAchievement(\App\Models\Child $child): void
+    {
+        $achievement = Achievement::query()->where('code', 'first_mission_approved')->first();
+        if (! $achievement) {
+            return;
+        }
+
+        $hasApprovedMission = MissionCompletion::query()
+            ->where('child_id', $child->id)
+            ->where('status', 'approved')
+            ->exists();
+
+        $hasAchievement = $child->achievements()
+            ->where('achievement_id', $achievement->id)
+            ->exists();
+
+        if ($hasApprovedMission && ! $hasAchievement) {
+            $child->achievements()->attach($achievement->id, ['unlocked_at' => now()]);
+        }
+
+        if (! $hasApprovedMission && $hasAchievement) {
+            $child->achievements()->detach($achievement->id);
         }
     }
 }
