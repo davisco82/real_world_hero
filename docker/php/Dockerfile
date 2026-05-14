@@ -47,7 +47,12 @@ RUN composer install \
     --no-progress \
     --no-scripts
 
-RUN mkdir -p storage/logs bootstrap/cache \
+RUN mkdir -p \
+    storage/logs \
+    storage/framework/cache \
+    storage/framework/sessions \
+    storage/framework/views \
+    bootstrap/cache \
     && chown -R www-data:www-data storage bootstrap/cache
 
 USER www-data
