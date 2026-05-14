@@ -20,7 +20,7 @@ services:
       - "8111:80"
     volumes:
       - ./:/var/www/html
-      - ./docker/nginx/default.conf:/etc/nginx/conf.d/site.conf:ro
+      - ./docker/nginx:/etc/nginx/conf.d:ro
     depends_on:
       - app
 
