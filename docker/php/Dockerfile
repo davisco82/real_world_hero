@@ -38,6 +38,17 @@ RUN groupmod -o -g ${GID} www-data \
 
 WORKDIR /var/www/html
 
+COPY --chown=www-data:www-data . /var/www/html
+
+RUN composer install \
+    --no-dev \
+    --optimize-autoloader \
+    --no-interaction \
+    --no-progress
+
+RUN mkdir -p storage/logs bootstrap/cache \
+    && chown -R www-data:www-data storage bootstrap/cache
+
 USER www-data
 
 CMD ["php-fpm"]
