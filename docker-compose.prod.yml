@@ -15,11 +15,11 @@ services:
           - app
 
   nginx:
-    image: nginx:1.27-alpine
+    build:
+      context: .
+      dockerfile: docker/nginx/Dockerfile
     ports:
       - "8111:80"
-    volumes:
-      - ./docker/nginx:/etc/nginx/conf.d:ro
     depends_on:
       - app
 
