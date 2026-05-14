@@ -28,14 +28,14 @@
 
                 @php
                     $periodMap = [
-                        '20 minut pohybu' => 'Ráno',
-                        'Dokonči domácí úkol před večeří' => 'Odpoledne',
-                        'Připrav si školní tašku' => 'Večer',
+                        'morning' => 'Ráno',
+                        'afternoon' => 'Odpoledne',
+                        'evening' => 'Večer',
                     ];
 
                     $board = ['Ráno' => [], 'Odpoledne' => [], 'Večer' => []];
                     foreach ($missions as $mission) {
-                        $period = $periodMap[$mission->title] ?? 'Odpoledne';
+                        $period = $periodMap[$mission->routineTemplate?->period ?? 'afternoon'] ?? 'Odpoledne';
                         $board[$period][] = $mission;
                     }
                 @endphp

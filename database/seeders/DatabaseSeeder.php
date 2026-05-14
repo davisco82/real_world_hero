@@ -4,7 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Achievement;
 use App\Models\Child;
-use App\Models\Mission;
+use App\Models\RoutineTemplate;
 use App\Models\SkillDomain;
 use Illuminate\Database\Seeder;
 
@@ -33,22 +33,61 @@ class DatabaseSeeder extends Seeder
 
         $today = now()->toDateString();
 
-        $missionTemplates = [
-            ['Přežití', 'Připrav si školní tašku', 20],
-            ['Práce s časem', 'Dokonči domácí úkol před večeří', 30],
-            ['Zdraví a energie', '20 minut pohybu', 25],
+        $routineTemplates = [
+            [
+                'domain' => 'Zdraví a energie',
+                'title' => '20 minut pohybu',
+                'description' => 'Ranní pohyb pro energický start dne',
+                'period' => 'morning',
+                'base_xp' => 5,
+                'bonus_xp' => 60,
+                'goal_type' => 'streak',
+                'goal_target' => 5,
+                'window_days' => null,
+            ],
+            [
+                'domain' => 'Práce s časem',
+                'title' => 'Dokonči domácí úkol před večeří',
+                'description' => 'Pravidelný režim školních povinností',
+                'period' => 'afternoon',
+                'base_xp' => 5,
+                'bonus_xp' => 80,
+                'goal_type' => 'volume',
+                'goal_target' => 10,
+                'window_days' => 14,
+            ],
+            [
+                'domain' => 'Přežití',
+                'title' => 'Připrav si školní tašku',
+                'description' => 'Večerní příprava bez ranního stresu',
+                'period' => 'evening',
+                'base_xp' => 5,
+                'bonus_xp' => 50,
+                'goal_type' => 'streak',
+                'goal_target' => 4,
+                'window_days' => null,
+            ],
         ];
 
-        foreach ($missionTemplates as [$domainName, $title, $xp]) {
-            $domain = SkillDomain::query()->where('name', $domainName)->firstOrFail();
+        foreach ($routineTemplates as $template) {
+            $domain = SkillDomain::query()->where('name', $template['domain'])->firstOrFail();
 
-            Mission::query()->firstOrCreate([
-                'skill_domain_id' => $domain->id,
-                'title' => $title,
-                'mission_date' => $today,
-            ], [
-                'xp_reward' => $xp,
-            ]);
+            RoutineTemplate::query()->updateOrCreate(
+                ['title' => $template['title']],
+                [
+                    'skill_domain_id' => $domain->id,
+                    'description' => $template['description'],
+                    'period' => $template['period'],
+                    'base_xp' => $template['base_xp'],
+                    'bonus_xp' => $template['bonus_xp'],
+                    'goal_type' => $template['goal_type'],
+                    'goal_target' => $template['goal_target'],
+                    'window_days' => $template['window_days'],
+                    'active_from' => $today,
+                    'active_until' => null,
+                    'is_active' => true,
+                ]
+            );
         }
 
         Achievement::query()->firstOrCreate(

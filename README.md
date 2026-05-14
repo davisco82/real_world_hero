@@ -136,3 +136,28 @@ make node
 - MySQL host: `127.0.0.1:3307`
 - Postgres host: `127.0.0.1:5433`
 - Redis host: `127.0.0.1:6380`
+
+## Routine System (MVP)
+
+The project now supports repeatable routine missions with bonus XP cycles.
+
+- `routine_templates` define how routines behave:
+- period: `morning | afternoon | evening`
+- base XP per approved daily mission (`base_xp`)
+- bonus XP per completed routine cycle (`bonus_xp`)
+- goal mode:
+- `streak`: consecutive approved days (`goal_target`)
+- `volume`: approved count in time window (`goal_target` in `window_days`)
+- schedule: `active_from`, optional `active_until`, `is_active`
+
+- `child_routine_progress` tracks each child progress for each routine:
+- approved count in cycle
+- current/best streak
+- completed cycles
+- window start date
+
+Daily mission generation now uses active routine templates.
+On parent approval:
+- child gets base mission XP
+- routine progress is updated
+- if cycle target is reached, child gets bonus XP automatically

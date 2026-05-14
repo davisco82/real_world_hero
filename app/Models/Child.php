@@ -22,6 +22,11 @@ class Child extends Model
             ->withTimestamps();
     }
 
+    public function routineProgresses(): HasMany
+    {
+        return $this->hasMany(ChildRoutineProgress::class);
+    }
+
     public function level(): int
     {
         return intdiv($this->total_xp, 100) + 1;

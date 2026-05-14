@@ -4,9 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Models\Achievement;
 use App\Models\Child;
+use App\Models\ChildRoutineProgress;
 use App\Models\Mission;
 use App\Models\MissionCompletion;
-use App\Models\SkillDomain;
+use App\Models\RoutineTemplate;
+use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
@@ -47,7 +50,7 @@ class DailyMissionController extends Controller
         $this->ensureFirstMissionSetForToday();
 
         $missions = Mission::query()
-            ->with(['domain', 'completions' => function ($q) use ($child) {
+            ->with(['domain', 'routineTemplate', 'completions' => function ($q) use ($child) {
                 $q->where('child_id', $child->id);
             }])
             ->whereDate('mission_date', now()->toDateString())
@@ -128,6 +131,7 @@ class DailyMissionController extends Controller
 
         $child = $completion->child;
         $child->increment('total_xp', $completion->mission->xp_reward);
+        $this->applyRoutineBonusIfReached($child, $completion->mission);
 
         $achievement = Achievement::query()->where('code', 'first_mission_approved')->first();
         if ($achievement && ! $child->achievements()->where('achievement_id', $achievement->id)->exists()) {
@@ -140,27 +144,95 @@ class DailyMissionController extends Controller
     private function ensureFirstMissionSetForToday(): void
     {
         $today = now()->toDateString();
+        $activeRoutines = RoutineTemplate::query()
+            ->where('is_active', true)
+            ->whereDate('active_from', '<=', $today)
+            ->where(function (Builder $query) use ($today) {
+                $query->whereNull('active_until')
+                    ->orWhereDate('active_until', '>=', $today);
+            })
+            ->with('domain')
+            ->get();
 
-        $missionTemplates = [
-            ['Přežití', 'Připrav si školní tašku', 20],
-            ['Práce s časem', 'Dokonči domácí úkol před večeří', 30],
-            ['Zdraví a energie', '20 minut pohybu', 25],
-        ];
-
-        foreach ($missionTemplates as [$domainName, $title, $xp]) {
-            $domain = SkillDomain::query()->where('name', $domainName)->first();
-            if (! $domain) {
+        foreach ($activeRoutines as $routine) {
+            if (! $routine->domain) {
                 continue;
             }
 
             Mission::query()->firstOrCreate([
-                'skill_domain_id' => $domain->id,
-                'title' => $title,
+                'routine_template_id' => $routine->id,
+                'skill_domain_id' => $routine->skill_domain_id,
+                'title' => $routine->title,
                 'mission_date' => $today,
             ], [
-                'xp_reward' => $xp,
+                'xp_reward' => $routine->base_xp,
             ]);
         }
+    }
+
+    private function applyRoutineBonusIfReached(Child $child, Mission $mission): void
+    {
+        $routine = $mission->routineTemplate;
+        if (! $routine) {
+            return;
+        }
+
+        $today = Carbon::today();
+
+        $progress = ChildRoutineProgress::query()->firstOrCreate([
+            'child_id' => $child->id,
+            'routine_template_id' => $routine->id,
+        ]);
+
+        if ($progress->last_approved_date?->isSameDay($today)) {
+            return;
+        }
+
+        if ($routine->goal_type === 'streak') {
+            $isConsecutive = $progress->last_approved_date?->isSameDay($today->copy()->subDay()) ?? false;
+            $progress->current_streak = $isConsecutive ? ($progress->current_streak + 1) : 1;
+            $progress->best_streak = max($progress->best_streak, $progress->current_streak);
+            $progress->approved_count++;
+            $progress->last_approved_date = $today;
+
+            if ($progress->current_streak >= $routine->goal_target) {
+                $child->increment('total_xp', $routine->bonus_xp);
+                $progress->completed_cycles++;
+                $progress->current_streak = 0;
+                $progress->approved_count = 0;
+                $progress->last_completed_at = now();
+            }
+
+            $progress->save();
+
+            return;
+        }
+
+        $windowDays = max(1, (int) ($routine->window_days ?? 1));
+        if (! $progress->window_start) {
+            $progress->window_start = $today;
+        }
+
+        $windowEnd = $progress->window_start->copy()->addDays($windowDays - 1);
+        if ($today->greaterThan($windowEnd)) {
+            $progress->window_start = $today;
+            $progress->approved_count = 0;
+            $progress->current_streak = 0;
+        }
+
+        $progress->approved_count++;
+        $progress->last_approved_date = $today;
+        $progress->current_streak = 0;
+
+        if ($progress->approved_count >= $routine->goal_target) {
+            $child->increment('total_xp', $routine->bonus_xp);
+            $progress->completed_cycles++;
+            $progress->approved_count = 0;
+            $progress->window_start = $today->copy()->addDay();
+            $progress->last_completed_at = now();
+        }
+
+        $progress->save();
     }
 
     private function buildWeeklyOverview(?Child $child): array

@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Mission extends Model
 {
-    protected $fillable = ['skill_domain_id', 'title', 'xp_reward', 'mission_date'];
+    protected $fillable = ['skill_domain_id', 'routine_template_id', 'title', 'xp_reward', 'mission_date'];
 
     protected function casts(): array
     {
@@ -20,6 +20,11 @@ class Mission extends Model
     public function domain(): BelongsTo
     {
         return $this->belongsTo(SkillDomain::class, 'skill_domain_id');
+    }
+
+    public function routineTemplate(): BelongsTo
+    {
+        return $this->belongsTo(RoutineTemplate::class);
     }
 
     public function completions(): HasMany
