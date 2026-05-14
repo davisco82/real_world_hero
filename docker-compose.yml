@@ -11,8 +11,6 @@ services:
       - ./:/var/www/html
     depends_on:
       - mysql
-      - postgres
-      - redis
 
   nginx:
     image: nginx:1.27-alpine
@@ -36,62 +34,5 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
 
-  postgres:
-    image: postgres:17-alpine
-    ports:
-      - "5433:5432"
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-app}
-      POSTGRES_USER: ${POSTGRES_USER:-app}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secret}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6380:6379"
-
-  queue:
-    build:
-      context: .
-      dockerfile: docker/php/Dockerfile
-      args:
-        UID: ${UID:-1000}
-        GID: ${GID:-1000}
-    working_dir: /var/www/html
-    volumes:
-      - ./:/var/www/html
-    command: php artisan queue:work --tries=3
-    depends_on:
-      - app
-      - redis
-
-  horizon:
-    build:
-      context: .
-      dockerfile: docker/php/Dockerfile
-      args:
-        UID: ${UID:-1000}
-        GID: ${GID:-1000}
-    working_dir: /var/www/html
-    volumes:
-      - ./:/var/www/html
-    command: php artisan horizon
-    depends_on:
-      - app
-      - redis
-
-  node:
-    image: node:22-alpine
-    working_dir: /var/www/html
-    user: "${UID:-1000}:${GID:-1000}"
-    volumes:
-      - ./:/var/www/html
-    command: sh -c "npm install && npm run dev -- --host"
-    ports:
-      - "5173:5173"
-
 volumes:
   mysql_data:
-  postgres_data:
