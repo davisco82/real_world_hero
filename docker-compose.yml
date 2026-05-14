@@ -11,6 +11,7 @@ services:
       - ./:/var/www/html
     depends_on:
       - mysql
+      - redis
 
   nginx:
     image: nginx:1.27-alpine
@@ -33,6 +34,51 @@ services:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
     volumes:
       - mysql_data:/var/lib/mysql
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+
+  queue:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+      args:
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+    working_dir: /var/www/html
+    volumes:
+      - ./:/var/www/html
+    command: php artisan queue:work --tries=3
+    depends_on:
+      - app
+      - redis
+
+  horizon:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+      args:
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+    working_dir: /var/www/html
+    volumes:
+      - ./:/var/www/html
+    command: php artisan horizon
+    depends_on:
+      - app
+      - redis
+
+  node:
+    image: node:22-alpine
+    working_dir: /var/www/html
+    user: "${UID:-1000}:${GID:-1000}"
+    volumes:
+      - ./:/var/www/html
+    command: sh -c "npm install && npm run dev -- --host"
+    ports:
+      - "5173:5173"
 
 volumes:
   mysql_data:
